@@ -1,0 +1,11 @@
+{
+    "description": "Deploy project",
+    "type": "project",
+    "require": {
+        "deployer/deployer": "^7.5"
+    },
+    "config": {
+        "bin-dir": "bin",
+        "sort-packages": true
+    }
+}

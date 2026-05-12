@@ -102,11 +102,26 @@ The application uses Symfony Messenger with Doctrine transport for async jobs:
 
 ## CI/CD
 
-GitHub Actions runs on PRs and pushes to main/develop:
-- PHP 8.4, Node 22
-- PHPUnit tests
-- Symfony linting (container, translations, Twig, YAML)
-- Easy Coding Standard checks
+GitLab CI (`.gitlab-ci.yml`) runs on every push:
+- **Stages**: `dependencies` → `code quality` → `tests` → `assets` → `deploy`
+- **Dependencies**: composer install + yarn install (caches via lockfiles)
+- **Code quality**: ECS, `lint:container`, `lint:translations`, `lint:twig`, `lint:yaml`
+- **Tests**: PHPUnit with MariaDB 11 service
+- **Assets**: `yarn build` on `develop` and `main` only
+- **Deploy**: Deployer SSH — `develop` → `staging`, `main` → `prod`
+
+### Deployment (Deployer)
+
+Configuration lives in `deployer/`:
+- `deploy.php` — recipe Symfony, hooks (`database:migrate`, `deploy:frontend`, `deploy:dump-env`, `deploy:messenger`)
+- `hosts.yml` — `staging` and `prod` hosts (user `jsd-deploy`, path `~/html`)
+- `supervisor/jsd-messenger.conf` — to be installed on the server in `/etc/supervisor/conf.d/`
+
+Manual deployment (emergency): `make deploy-staging` or `make deploy-prod` from local.
+
+Required GitLab CI/CD variables:
+- `SSH_PRIVATE_KEY` (protected, masked) — private key authorized on the deploy user
+- `SSH_KNOWN_HOSTS` (optional, otherwise `StrictHostKeyChecking no` is used)
 
 ## Environment Configuration
 

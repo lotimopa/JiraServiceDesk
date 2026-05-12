@@ -167,35 +167,6 @@ lint:		## Lint code
 
 ##
 ## —— Configuration 📋 ————————————————
-COMPOSER_FILE=./composer.json
-PACKAGE_FILE=./package.json
-ENV_FILE=./.env
-
-deploy: vendor-build assets-build
-	@echo "🚀 Deploying project"
-	@echo "📝 Dumping environment variables"
-	@composer dump-env $(ENV)
-	@echo "🚚 Running migrations"
-	@php bin/console doctrine:migrations:migrate --no-interaction
-	@echo "🌐 Clearing cache"
-	@php bin/console cache:clear
-	@echo "🌐 Warmup cache"
-	@php bin/console cache:warmup
-
-bump:
-	@if [ -z "$(VERSION)" ]; then \
-		echo "Erreur : Vous devez fournir une nouvelle version avec VERSION=x.x.x"; \
-		exit 1; \
-	fi
-	@echo "Mise à jour de la version dans composer.json, package.json et .env vers $(VERSION)"
-	@case "$$(uname)" in \
-		Darwin) SED_OPT="-i ''";; \
-		*) SED_OPT="-i";; \
-	esac; \
-	sed $$SED_OPT 's/"version": *"[0-9]*\.[0-9]*\.[0-9]*"/"version": "$(VERSION)"/' $(COMPOSER_FILE); \
-	sed $$SED_OPT 's/"version": *"[0-9]*\.[0-9]*\.[0-9]*"/"version": "$(VERSION)"/' $(PACKAGE_FILE); \
-	sed $$SED_OPT 's/^PROJECT_VERSION=.*/PROJECT_VERSION=$(VERSION)/' $(ENV_FILE)
-
 .PHONY: config
 config:
 	@echo "📝 Copying .env.docker.dist to .env.docker (only if missing)"
@@ -205,9 +176,17 @@ config:
 		echo ".env.docker already exists, skipping"; \
 	fi
 
-SERVER ?= rmjsd.p
-DOMAIN ?= rmjsd
-prod:
-	@echo "🚀 Deploying in production project."
-	@ssh -A $(SERVER) 'cd $(DOMAIN) && git restore package-lock.json && ./restart-prod.sh'
+##
+## —— Deploy 🚀 ————————————————
+.PHONY: deployer-install
+deployer-install:
+	@cd deployer && composer install --no-dev --prefer-dist --no-progress
+
+.PHONY: deploy-staging
+deploy-staging: deployer-install ## Manually deploy to staging (CI is the default path)
+	@deployer/bin/dep deploy staging -v
+
+.PHONY: deploy-prod
+deploy-prod: deployer-install ## Manually deploy to production (CI is the default path)
+	@deployer/bin/dep deploy prod -v
 

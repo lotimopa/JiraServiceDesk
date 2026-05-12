@@ -1,0 +1,32 @@
+{
+    "extends": ["config:recommended", "group:symfony"],
+    "enabledManagers": ["composer", "npm"],
+    "rangeStrategy": "update-lockfile",
+    "dependencyDashboard": true,
+    "packageRules": [
+        {
+            "matchManagers": ["composer"],
+            "groupName": "composer dependencies"
+        },
+        {
+            "matchManagers": ["npm"],
+            "groupName": "npm dependencies"
+        },
+        {
+            "matchPackagePatterns": ["^symfony/"],
+            "groupName": "Symfony packages",
+            "automerge": false,
+            "separateMinorPatch": true
+        },
+        {
+            "matchPackagePatterns": ["^symfony/"],
+            "matchUpdateTypes": ["major"],
+            "enabled": false
+        },
+        {
+            "matchPackagePatterns": ["^doctrine/"],
+            "groupName": "Doctrine packages",
+            "separateMinorPatch": true
+        }
+    ]
+}

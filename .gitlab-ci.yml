@@ -1,0 +1,183 @@
+stages:
+  - dependencies
+  - code quality
+  - tests
+  - assets
+  - deploy
+
+image: spiriitlabs/symfony-cli:8.4-minimalist
+
+services:
+  - name: mariadb:11
+    alias: mysql
+
+variables:
+  MARIADB_DATABASE: app_test
+  MARIADB_ROOT_PASSWORD: root
+  COMPOSER_CACHE_DIR: "$CI_PROJECT_DIR/.composer-cache"
+  YARN_CACHE_FOLDER: "$CI_PROJECT_DIR/.yarn-cache"
+
+# ─── Stage: dependencies ────────────────────────────────────────────────────
+
+composer:
+  stage: dependencies
+  script:
+    - composer validate --strict 2>&1 | grep -v 'The version field is present' || true
+    - composer install -q --no-ansi --no-interaction --no-progress --prefer-dist
+  cache:
+    key:
+      files:
+        - composer.lock
+    paths:
+      - vendor/
+      - .composer-cache/
+  artifacts:
+    paths:
+      - vendor
+      - var/cache
+    expire_in: 1 hour
+
+yarn:
+  stage: dependencies
+  image: node:22-alpine
+  before_script:
+    - corepack enable
+  script:
+    - yarn install --frozen-lockfile
+    - yarn audit --level moderate || true
+  cache:
+    key:
+      files:
+        - yarn.lock
+    paths:
+      - node_modules/
+      - .yarn-cache/
+  artifacts:
+    paths:
+      - node_modules
+    expire_in: 1 hour
+
+# ─── Stage: code quality ────────────────────────────────────────────────────
+
+.composer-job: &composer-job
+  needs:
+    - job: composer
+      artifacts: true
+
+ecs:
+  <<: *composer-job
+  stage: code quality
+  script: symfony php vendor/bin/ecs check src
+
+lint:container:
+  <<: *composer-job
+  stage: code quality
+  script: symfony console lint:container
+
+lint:translations:
+  <<: *composer-job
+  stage: code quality
+  script: symfony console lint:translations
+
+lint:twig:
+  <<: *composer-job
+  stage: code quality
+  script: symfony console lint:twig templates/
+
+lint:yaml:
+  <<: *composer-job
+  stage: code quality
+  script: symfony console lint:yaml config
+
+# ─── Stage: tests ───────────────────────────────────────────────────────────
+
+phpunit:
+  <<: *composer-job
+  stage: tests
+  variables:
+    DATABASE_URL: "mysql://root:$MARIADB_ROOT_PASSWORD@mysql:3306/$MARIADB_DATABASE?serverVersion=mariadb-11&charset=utf8mb4"
+  script:
+    - echo "date.timezone=Europe/Paris" >> /usr/local/etc/php/conf.d/zz-conf.ini
+    - sed -i '/DATABASE_URL/d' .env.test
+    - echo "DATABASE_URL=\"${DATABASE_URL}\"" >> .env.test
+    - APP_ENV=test symfony console doctrine:database:create --if-not-exists
+    - APP_ENV=test symfony console doctrine:migrations:migrate --no-interaction
+    - APP_ENV=test symfony php vendor/bin/phpunit
+
+# ─── Stage: assets ──────────────────────────────────────────────────────────
+
+assets:
+  stage: assets
+  image: node:22-alpine
+  needs:
+    - job: yarn
+      artifacts: true
+  rules:
+    - if: $CI_COMMIT_BRANCH == "develop"
+    - if: $CI_COMMIT_BRANCH == "main"
+  before_script:
+    - corepack enable
+  script:
+    - yarn build
+  artifacts:
+    paths:
+      - public/build
+    expire_in: 1 day
+
+# ─── Stage: deploy ──────────────────────────────────────────────────────────
+
+.deploy: &deploy
+  stage: deploy
+  cache:
+    paths:
+      - deployer/vendor
+      - deployer/bin
+  before_script:
+    - cd ./deployer
+    - composer install --prefer-dist --no-ansi --no-interaction --no-progress --no-scripts
+    - cd ..
+    - which ssh-agent || ( apt-get update -y && apt-get install openssh-client -y )
+    - mkdir -p ~/.ssh
+    - eval $(ssh-agent -s)
+    - '[[ -f /.dockerenv ]] && echo -e "Host *\n\tStrictHostKeyChecking no\n\n" > ~/.ssh/config'
+    - ssh-add <(echo "$SSH_PRIVATE_KEY")
+
+deploy:staging:
+  <<: *deploy
+  rules:
+    - if: $CI_COMMIT_BRANCH == "develop"
+  script:
+    - deployer/bin/dep deploy staging -v
+  needs:
+    - job: composer
+      artifacts: true
+    - job: ecs
+    - job: lint:container
+    - job: lint:translations
+    - job: lint:twig
+    - job: lint:yaml
+    - job: phpunit
+    - job: assets
+      artifacts: true
+  environment:
+    name: staging
+
+deploy:prod:
+  <<: *deploy
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+  script:
+    - deployer/bin/dep deploy prod -v
+  needs:
+    - job: composer
+      artifacts: true
+    - job: ecs
+    - job: lint:container
+    - job: lint:translations
+    - job: lint:twig
+    - job: lint:yaml
+    - job: phpunit
+    - job: assets
+      artifacts: true
+  environment:
+    name: prod

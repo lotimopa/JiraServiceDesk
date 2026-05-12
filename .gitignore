@@ -56,3 +56,14 @@ public/app/*
 ###> spiriitlabs/jira-service-desk ###
 assets/images/logo/custom/*
 ###< spiriitlabs/jira-service-desk ###
+
+###> deployer/deployer ###
+/deployer/vendor/
+/deployer/bin/
+/deployer/composer.lock
+###< deployer/deployer ###
+
+###> ci-cache ###
+/.composer-cache/
+/.yarn-cache/
+###< ci-cache ###

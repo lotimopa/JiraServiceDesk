@@ -46,9 +46,24 @@ make start
 
 The app will be available at: `https://localhost`
 
-### 📦 Production / Binary Setup
+### 📦 Production Deployment
 
-Download the latest FrankenPHP binary build from GitHub Releases and follow the binary [setup guide](documentation/deployment.md).
+Automated CI/CD is handled by GitLab CI (`.gitlab-ci.yml`) using [Deployer](https://deployer.org/) over SSH:
+
+- Push to `develop` → deploys automatically to **staging**
+- Push to `main` → deploys automatically to **production**
+
+Each deployment creates an atomic release (`~/html/releases/<timestamp>`) and switches the `~/html/current` symlink — rollback is one symlink away.
+
+Configuration files:
+- `.gitlab-ci.yml` — pipeline (dependencies → code quality → tests → assets → deploy)
+- `deployer/deploy.php` — Symfony recipe with hooks (migrations, Vite assets upload, dump-env, Messenger restart)
+- `deployer/hosts.yml` — staging and prod host definitions
+- `deployer/supervisor/jsd-messenger.conf` — to install on the server in `/etc/supervisor/conf.d/`
+
+Required GitLab CI/CD variables: `SSH_PRIVATE_KEY` (protected, masked).
+
+Emergency manual deployment from local: `make deploy-staging` or `make deploy-prod`.
 
 ---
 
