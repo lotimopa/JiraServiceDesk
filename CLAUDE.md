@@ -113,9 +113,9 @@ GitLab CI (`.gitlab-ci.yml`) runs on every push:
 ### Deployment (Deployer)
 
 Configuration lives in `deployer/`:
-- `deploy.php` — recipe Symfony, hooks (`database:migrate`, `deploy:frontend`, `deploy:dump-env`, `deploy:messenger`)
-- `hosts.yml` — `staging` and `prod` hosts (user `jsd-deploy`, path `~/html`)
-- `supervisor/jsd-messenger.conf` — to be installed on the server in `/etc/supervisor/conf.d/`
+- `deploy.php` — recipe Symfony, hooks (`database:migrate`, `deploy:frontend`, `deploy:dump-env`, `deploy:restart_messenger`)
+- `hosts.yml` — `staging` and `prod` hosts (user `support2025`, path `~/html`)
+- `supervisor/support2025-messenger.conf` — to be installed on the server in `/etc/supervisor/conf.d/`
 
 Manual deployment (emergency): `make deploy-staging` or `make deploy-prod` from local.
 

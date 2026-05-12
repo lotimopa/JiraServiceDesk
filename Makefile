@@ -176,17 +176,3 @@ config:
 		echo ".env.docker already exists, skipping"; \
 	fi
 
-##
-## —— Deploy 🚀 ————————————————
-.PHONY: deployer-install
-deployer-install:
-	@cd deployer && composer install --no-dev --prefer-dist --no-progress
-
-.PHONY: deploy-staging
-deploy-staging: deployer-install ## Manually deploy to staging (CI is the default path)
-	@deployer/bin/dep deploy staging -v
-
-.PHONY: deploy-prod
-deploy-prod: deployer-install ## Manually deploy to production (CI is the default path)
-	@deployer/bin/dep deploy prod -v
-

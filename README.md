@@ -59,7 +59,7 @@ Configuration files:
 - `.gitlab-ci.yml` — pipeline (dependencies → code quality → tests → assets → deploy)
 - `deployer/deploy.php` — Symfony recipe with hooks (migrations, Vite assets upload, dump-env, Messenger restart)
 - `deployer/hosts.yml` — staging and prod host definitions
-- `deployer/supervisor/jsd-messenger.conf` — to install on the server in `/etc/supervisor/conf.d/`
+- `deployer/supervisor/support2025-messenger.conf` — to install on the server in `/etc/supervisor/conf.d/`
 
 Required GitLab CI/CD variables: `SSH_PRIVATE_KEY` (protected, masked).
 
