@@ -121,6 +121,7 @@ Manual deployment (emergency): `make deploy-staging` or `make deploy-prod` from 
 
 Required GitLab CI/CD variables:
 - `SSH_PRIVATE_KEY` (protected, masked) — private key authorized on the deploy user
+- `GITLAB_AGENTSSH_ED25519` (protected, masked) — deploy key forwarded to the server so Deployer can clone the repo from GitLab (`forward_agent=true`)
 - `SSH_KNOWN_HOSTS` (optional, otherwise `StrictHostKeyChecking no` is used)
 
 ## Environment Configuration

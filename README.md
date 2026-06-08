@@ -61,7 +61,10 @@ Configuration files:
 - `deployer/hosts.yml` — staging and prod host definitions
 - `deployer/supervisor/support2025-messenger.conf` — to install on the server in `/etc/supervisor/conf.d/`
 
-Required GitLab CI/CD variables: `SSH_PRIVATE_KEY` (protected, masked).
+Required GitLab CI/CD variables (protected, masked):
+- `SSH_PRIVATE_KEY` — key authorized to log into the deploy server
+- `GITLAB_AGENTSSH_ED25519` — deploy key forwarded to the server so Deployer can clone the repo from GitLab (Deployer runs with `forward_agent=true`)
+- `SSH_KNOWN_HOSTS` (optional) — host keys; if unset, host key checking is disabled
 
 Emergency manual deployment from local: `make deploy-staging` or `make deploy-prod`.
 

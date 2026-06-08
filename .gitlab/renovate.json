@@ -13,18 +13,18 @@
             "groupName": "npm dependencies"
         },
         {
-            "matchPackagePatterns": ["^symfony/"],
+            "matchPackageNames": ["/^symfony\\//"],
             "groupName": "Symfony packages",
             "automerge": false,
             "separateMinorPatch": true
         },
         {
-            "matchPackagePatterns": ["^symfony/"],
+            "matchPackageNames": ["/^symfony\\//"],
             "matchUpdateTypes": ["major"],
             "enabled": false
         },
         {
-            "matchPackagePatterns": ["^doctrine/"],
+            "matchPackageNames": ["/^doctrine\\//"],
             "groupName": "Doctrine packages",
             "separateMinorPatch": true
         }

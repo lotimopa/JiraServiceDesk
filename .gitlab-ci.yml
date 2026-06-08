@@ -5,7 +5,9 @@ stages:
   - assets
   - deploy
 
-image: spiriitlabs/symfony-cli:8.4-minimalist
+default:
+  image: ${CI_REGISTRY}/choosik/symfony/project-tools/docker-images:8.5
+  interruptible: true
 
 services:
   - name: mariadb:11
@@ -14,6 +16,7 @@ services:
 variables:
   MARIADB_DATABASE: app_test
   MARIADB_ROOT_PASSWORD: root
+  TZ: Europe/Paris
   COMPOSER_CACHE_DIR: "$CI_PROJECT_DIR/.composer-cache"
   YARN_CACHE_FOLDER: "$CI_PROJECT_DIR/.yarn-cache"
 
@@ -28,6 +31,8 @@ composer:
     key:
       files:
         - composer.lock
+    fallback_keys:
+      - composer-fallback
     paths:
       - vendor/
       - .composer-cache/
@@ -49,6 +54,8 @@ yarn:
     key:
       files:
         - yarn.lock
+    fallback_keys:
+      - yarn-fallback
     paths:
       - node_modules/
       - .yarn-cache/
@@ -67,27 +74,27 @@ yarn:
 ecs:
   <<: *composer-job
   stage: code quality
-  script: symfony php vendor/bin/ecs check src
+  script: php vendor/bin/ecs check src
 
 lint:container:
   <<: *composer-job
   stage: code quality
-  script: symfony console lint:container
+  script: php bin/console lint:container
 
 lint:translations:
   <<: *composer-job
   stage: code quality
-  script: symfony console lint:translations
+  script: php bin/console lint:translations
 
 lint:twig:
   <<: *composer-job
   stage: code quality
-  script: symfony console lint:twig templates/
+  script: php bin/console lint:twig templates/
 
 lint:yaml:
   <<: *composer-job
   stage: code quality
-  script: symfony console lint:yaml config
+  script: php bin/console lint:yaml config
 
 # ─── Stage: tests ───────────────────────────────────────────────────────────
 
@@ -97,12 +104,11 @@ phpunit:
   variables:
     DATABASE_URL: "mysql://root:$MARIADB_ROOT_PASSWORD@mysql:3306/$MARIADB_DATABASE?serverVersion=mariadb-11&charset=utf8mb4"
   script:
-    - echo "date.timezone=Europe/Paris" >> /usr/local/etc/php/conf.d/zz-conf.ini
     - sed -i '/DATABASE_URL/d' .env.test
     - echo "DATABASE_URL=\"${DATABASE_URL}\"" >> .env.test
-    - APP_ENV=test symfony console doctrine:database:create --if-not-exists
-    - APP_ENV=test symfony console doctrine:migrations:migrate --no-interaction
-    - APP_ENV=test symfony php vendor/bin/phpunit
+    - APP_ENV=test php bin/console doctrine:database:create --if-not-exists
+    - APP_ENV=test php bin/console doctrine:migrations:migrate --no-interaction
+    - APP_ENV=test php vendor/bin/phpunit
 
 # ─── Stage: assets ──────────────────────────────────────────────────────────
 
@@ -138,46 +144,42 @@ assets:
     - cd ..
     - which ssh-agent || ( apt-get update -y && apt-get install openssh-client -y )
     - mkdir -p ~/.ssh
+    # Host key verification: use SSH_KNOWN_HOSTS if provided, else fall back to disabling the check
+    - if [ -n "$SSH_KNOWN_HOSTS" ]; then echo "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts; chmod 644 ~/.ssh/known_hosts; else echo -e "Host *\n\tStrictHostKeyChecking no\n" > ~/.ssh/config; fi
     - eval $(ssh-agent -s)
-    - '[[ -f /.dockerenv ]] && echo -e "Host *\n\tStrictHostKeyChecking no\n\n" > ~/.ssh/config'
+    # Key to log into the deploy server
     - ssh-add <(echo "$SSH_PRIVATE_KEY")
+    # Deploy key forwarded to the server so Deployer can clone the repo from GitLab (forward_agent=true)
+    - if [ -n "$GITLAB_AGENTSSH_ED25519" ]; then ssh-add <(echo "$GITLAB_AGENTSSH_ED25519"); fi
+
+# Shared deploy dependencies — single source of truth for staging & prod
+.deploy-needs: &deploy-needs
+  needs:
+    - job: composer
+      artifacts: true
+    - job: ecs
+    - job: lint:container
+    - job: lint:translations
+    - job: lint:twig
+    - job: lint:yaml
+    - job: phpunit
+    - job: assets
+      artifacts: true
 
 deploy:staging:
-  <<: *deploy
+  <<: [*deploy, *deploy-needs]
   rules:
     - if: $CI_COMMIT_BRANCH == "develop"
   script:
     - deployer/bin/dep deploy staging -v
-  needs:
-    - job: composer
-      artifacts: true
-    - job: ecs
-    - job: lint:container
-    - job: lint:translations
-    - job: lint:twig
-    - job: lint:yaml
-    - job: phpunit
-    - job: assets
-      artifacts: true
   environment:
     name: staging
 
 deploy:prod:
-  <<: *deploy
+  <<: [*deploy, *deploy-needs]
   rules:
     - if: $CI_COMMIT_BRANCH == "main"
   script:
     - deployer/bin/dep deploy prod -v
-  needs:
-    - job: composer
-      artifacts: true
-    - job: ecs
-    - job: lint:container
-    - job: lint:translations
-    - job: lint:twig
-    - job: lint:yaml
-    - job: phpunit
-    - job: assets
-      artifacts: true
   environment:
     name: prod

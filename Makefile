@@ -166,6 +166,16 @@ lint:		## Lint code
 	@$(CONSOLE) lint:yaml config
 
 ##
+## —— Deployment 🚀 ————————————————
+.PHONY: deploy-staging
+deploy-staging:		## Manual deploy to staging (emergency)
+	@cd deployer && composer install --no-interaction --no-progress -q && bin/dep deploy staging -v
+
+.PHONY: deploy-prod
+deploy-prod:		## Manual deploy to prod (emergency)
+	@cd deployer && composer install --no-interaction --no-progress -q && bin/dep deploy prod -v
+
+##
 ## —— Configuration 📋 ————————————————
 .PHONY: config
 config:
